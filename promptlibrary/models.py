@@ -9,6 +9,7 @@ class PromptCategory(Enum):
     CHAT = "chat"
     SYSTEM = "system"
     GENERAL = "general"
+    PHILOSOPHICAL = "philosophical"
 
 @dataclass
 class Prompt:

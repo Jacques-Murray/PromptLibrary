@@ -17,7 +17,12 @@ Additional context:
 {context}
 """,
     tags=["review", "code quality", "security"],
-    model_compatibility=["gpt-4", "gpt-3.5-turbo"],
+    model_compatibility=[
+        "gpt-4", "gpt-3.5-turbo",
+        "llama3.2", "llama3.1",
+        "mistral", "mixtral",
+        "codellama", "codellama:13b", "codellama:34b"
+    ],
     parameters={
         "code": "The code to review",
         "context": "Additional context about the code"

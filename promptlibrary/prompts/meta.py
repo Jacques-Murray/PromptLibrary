@@ -19,7 +19,12 @@ Additional requirements:
 Target audience: {audience}
 Expected output format: {output_format}""",
     tags=["meta", "prompt-generation"],
-    model_compatibility=["gpt-4", "gpt-3.5-turbo"],
+    model_compatibility=[
+        "gpt-4", "gpt-3.5-turbo",
+        "llama3.2", "llama3.1",
+        "mistral", "mixtral",
+        "codellama", "codellama:13b", "codellama:34b"
+    ],
     parameters={
         "objective": "The main goal of the prompt to be generated",
         "requirements": "Any specific requirements or constraints",
