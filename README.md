@@ -41,7 +41,38 @@ To contribute to this project:
 
 1. Clone the repository
 2. Install development dependencies: `pip install -r requirements.txt`
-3. Run tests: `pytest tests/`
+3. Install pre-commit hooks: `pre-commit install`
+4. Run tests: `pytest tests/`
+
+### Code Quality
+
+This project uses several tools to maintain code quality:
+
+- **pre-commit hooks** for automated code formatting and checks
+  - Black (code formatter)
+  - isort (import sorter)
+  - flake8 (linter)
+  - mypy (type checker)
+
+### CI/CD
+
+We use GitHub Actions for continuous integration and deployment:
+
+- **Test Workflow**: Runs on every push and pull request
+  - Executes test suite with pytest
+  - Runs pre-commit checks
+  - Generates coverage reports
+  - Requires Python 3.11+
+
+- **Security Scanning**: Weekly and on code changes
+  - Uses GitHub CodeQL
+  - Performs security and quality analysis
+  - Focuses on Python-specific vulnerabilities
+
+- **Publishing**: Automated on new releases
+  - Builds and publishes to PyPI
+  - Includes verification steps
+  - Uses trusted publishing
 
 ## Requirements
 
