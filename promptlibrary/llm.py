@@ -3,6 +3,7 @@ from typing import Optional, Union, List, Dict
 from dataclasses import dataclass
 import os
 from enum import Enum
+from openai import OpenAI
 
 class LLMProvider(Enum):
     OPENAI = "openai"
@@ -36,154 +37,145 @@ class LLMConfig:
         )
 
 class LLMClient:
-    """Client for interacting with different LLM providers."""
+    """Client for interacting with LLMs."""
     
-    def __init__(self, config: Optional[LLMConfig] = None):
-        """Initialize the client with optional configuration.
+    def __init__(self, config: LLMConfig):
+        self.config = config
+        if config.provider == LLMProvider.OPENAI:
+            self.client = OpenAI(api_key=config.api_key)
+        elif config.provider == LLMProvider.OLLAMA:
+            import ollama
+            self.client = ollama
+        else:
+            raise ValueError(f"Unsupported provider: {config.provider}")
+
+    def generate(self, messages: List[Dict[str, str]], **kwargs) -> str:
+        """Generate a response from the LLM.
         
         Args:
-            config: LLM configuration. If None, uses default OpenAI config.
-        """
-        self.config = config or LLMConfig.default_openai()
-        self._client = None
-        self._setup_client()
-    
-    def _setup_client(self):
-        """Initialize the appropriate LLM client based on provider."""
-        if self.config.provider == LLMProvider.OPENAI:
-            try:
-                from openai import OpenAI
-                self._client = OpenAI(
-                    api_key=self.config.api_key or os.getenv("OPENAI_API_KEY"),
-                    base_url=self.config.base_url
-                )
-            except ImportError:
-                raise ImportError("OpenAI package not found. Install with: pip install openai")
-        elif self.config.provider == LLMProvider.OLLAMA:
-            try:
-                import ollama
-                self._client = ollama
-            except ImportError:
-                raise ImportError("Ollama package not found. Install with: pip install ollama")
-    
-    def generate(
-        self,
-        system_prompt: str,
-        user_prompt: str,
-        **kwargs
-    ) -> str:
-        """Generate completion using the configured LLM.
-        
-        Args:
-            system_prompt: The system prompt to guide the model
-            user_prompt: The user's input prompt
-            **kwargs: Additional provider-specific parameters
+            messages: List of message dictionaries with 'role' and 'content'
+            **kwargs: Additional arguments to pass to the LLM
             
         Returns:
-            str: The generated completion text
-            
-        Raises:
-            RuntimeError: If the LLM client fails or returns an error
+            str: The generated response
         """
-        try:
-            if self.config.provider == LLMProvider.OPENAI:
-                response = self._client.chat.completions.create(
-                    model=self.config.model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens,
-                    **kwargs
-                )
-                return response.choices[0].message.content
-                
-            elif self.config.provider == LLMProvider.OLLAMA:
-                response = self._client.chat(
-                    model=self.config.model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    **kwargs
-                )
-                return response['message']['content']
-                
-        except Exception as e:
-            raise RuntimeError(f"Error generating completion: {str(e)}")
+        if self.config.provider == LLMProvider.OPENAI:
+            completion = self.client.chat.completions.create(
+                model=self.config.model,
+                messages=messages,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+                **kwargs
+            )
+            return completion.choices[0].message.content
+        
+        elif self.config.provider == LLMProvider.OLLAMA:
+            response = self.client.chat(
+                model=self.config.model,
+                messages=messages,
+                **kwargs
+            )
+            return response['message']['content']
 
-def create_prompt(
-    task_or_prompt: str,
-    config: Optional[LLMConfig] = None,
-    template: str = None,
-    format_args: Dict = None
-) -> str:
-    """Generate a prompt using the configured LLM.
+def create_prompt(task_or_prompt: str, config: Optional[LLMConfig] = None) -> str:
+    """Create a new prompt based on a task description.
     
     Args:
-        task_or_prompt: The task description or existing prompt to improve
-        config: LLM configuration. If None, uses default OpenAI config
-        template: Optional custom template. If None, uses default META_PROMPT
-        format_args: Optional arguments to format the template
+        task_or_prompt: Description of the task or existing prompt to improve
+        config: Optional LLM configuration. If not provided, uses default OpenAI config
         
     Returns:
         str: The generated prompt
-        
-    Raises:
-        RuntimeError: If prompt generation fails
     """
     from .prompts.system import PROMPT_GENERATOR
     
-    # Use template from PROMPT_GENERATOR if none provided
-    template = template or PROMPT_GENERATOR.template
-    if format_args:
-        template = template.format(**format_args)
+    if config is None:
+        config = LLMConfig.default_openai()
     
     client = LLMClient(config)
-    return client.generate(
-        system_prompt=template,
-        user_prompt=f"Task, Goal, or Current Prompt:\n{task_or_prompt}"
-    )
+    return client.generate([
+        {
+            "role": "system",
+            "content": PROMPT_GENERATOR.content,
+        },
+        {
+            "role": "user",
+            "content": "Task, Goal, or Current Prompt:\n" + task_or_prompt,
+        },
+    ])
 
-def edit_prompt(
-    current_prompt: str,
-    change_description: str,
-    config: Optional[LLMConfig] = None,
-    template: str = None,
-    format_args: Dict = None
-) -> str:
-    """Edit an existing prompt based on a change description.
+def edit_prompt(prompt: str, config: Optional[LLMConfig] = None) -> str:
+    """Edit an existing prompt to improve its effectiveness.
     
     Args:
-        current_prompt: The existing prompt to modify
-        change_description: Description of the changes to make
-        config: LLM configuration. If None, uses default OpenAI config
-        template: Optional custom template. If None, uses default PROMPT_EDITOR
-        format_args: Optional arguments to format the template
+        prompt: The existing prompt to improve
+        config: Optional LLM configuration. If not provided, uses default OpenAI config
         
     Returns:
-        str: The edited prompt
-        
-    Raises:
-        RuntimeError: If prompt editing fails
+        str: The improved prompt
     """
     from .prompts.system import PROMPT_EDITOR
     
-    # Use template from PROMPT_EDITOR if none provided
-    template = template or PROMPT_EDITOR.template
-    if format_args:
-        template = template.format(**format_args)
+    if config is None:
+        config = LLMConfig.default_openai()
     
     client = LLMClient(config)
-    return client.generate(
-        system_prompt=template,
-        user_prompt=f"""Current Prompt:
-{current_prompt}
+    return client.generate([
+        {
+            "role": "system",
+            "content": PROMPT_EDITOR.content,
+        },
+        {
+            "role": "user",
+            "content": prompt,
+        },
+    ])
 
-Change Description:
-{change_description}"""
+def create_audio_prompt(task_or_prompt: str, config: Optional[LLMConfig] = None) -> str:
+    """Create a new prompt optimized for audio output based on a task description.
+    
+    Args:
+        task_or_prompt: Description of the task or existing prompt to improve
+        config: Optional LLM configuration. If not provided, uses default OpenAI config
+        
+    Returns:
+        str: The generated audio-optimized prompt
+    """
+    from .prompts.system import AUDIO_PROMPT_GENERATOR
+    
+    if config is None:
+        config = LLMConfig.default_openai()
+    
+    client = LLMClient(config)
+    return client.generate([
+        {
+            "role": "system",
+            "content": AUDIO_PROMPT_GENERATOR.content,
+        },
+        {
+            "role": "user",
+            "content": "Task, Goal, or Current Prompt:\n" + task_or_prompt,
+        },
+    ])
+
+def generate_audio_prompt(task_or_prompt: str, model: str = "gpt-4o") -> str:
+    """Simple interface for generating audio-optimized prompts using OpenAI.
+    
+    This matches the interface of the example code while using our robust implementation.
+    
+    Args:
+        task_or_prompt: The task description or existing prompt to improve
+        model: The OpenAI model to use (default: "gpt-4o")
+        
+    Returns:
+        str: The generated audio-optimized prompt
+    """
+    config = LLMConfig(
+        provider=LLMProvider.OPENAI,
+        model=model,
+        api_key=os.getenv("OPENAI_API_KEY")
     )
+    return create_audio_prompt(task_or_prompt, config=config)
 
 # Simple function matching the example code's interface
 def generate_prompt(task_or_prompt: str, model: str = "gpt-4o") -> str:
@@ -200,6 +192,7 @@ def generate_prompt(task_or_prompt: str, model: str = "gpt-4o") -> str:
     """
     config = LLMConfig(
         provider=LLMProvider.OPENAI,
-        model=model
+        model=model,
+        api_key=os.getenv("OPENAI_API_KEY")
     )
     return create_prompt(task_or_prompt, config=config)
