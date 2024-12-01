@@ -5,7 +5,14 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     install_requires=[
-        # Add your package dependencies here
+        "pytest>=7.0.0",
+        "pytest-cov>=4.0.0",
+        "openai>=1.0.0",
+        "ollama>=0.1.0",
+        "jsonschema>=4.20.0",
+        "pydantic>=2.5.0",
+        "typing-extensions>=4.8.0",
+        "python-dotenv>=1.0.0"
     ],
     author="Jacques Murray",
     author_email="jacquesmmurray@gmail.com",

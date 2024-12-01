@@ -8,20 +8,28 @@ from .llm import (
     create_prompt,
     create_audio_prompt,
     edit_prompt,
+    edit_audio_prompt,
+    generate_schema,
     LLMConfig,
     LLMProvider,
     LLMClient
 )
 
+from .schema import (
+    Schema,
+    SchemaProperty,
+    FUNCTION_META_SCHEMA
+)
+
+from .prompts.system import FUNCTION_SCHEMA_GENERATOR
+
 __version__ = "0.1.0"
 
 __all__ = [
-    'generate_prompt',
-    'generate_audio_prompt',
-    'create_prompt',
-    'create_audio_prompt',
-    'edit_prompt',
-    'LLMConfig',
-    'LLMProvider',
-    'LLMClient'
+    'Schema',
+    'SchemaProperty',
+    'FUNCTION_META_SCHEMA',
+    'FUNCTION_SCHEMA_GENERATOR',
+    'generate_schema',
+    'edit_audio_prompt'
 ]

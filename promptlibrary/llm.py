@@ -1,9 +1,10 @@
 """Module for handling LLM interactions."""
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List, Dict, Any
 from dataclasses import dataclass
 import os
 from enum import Enum
 from openai import OpenAI
+import json
 
 class LLMProvider(Enum):
     OPENAI = "openai"
@@ -104,15 +105,16 @@ def create_prompt(task_or_prompt: str, config: Optional[LLMConfig] = None) -> st
         },
     ])
 
-def edit_prompt(prompt: str, config: Optional[LLMConfig] = None) -> str:
+def edit_prompt(prompt: str, change_description: str, config: Optional[LLMConfig] = None) -> str:
     """Edit an existing prompt to improve its effectiveness.
     
     Args:
         prompt: The existing prompt to improve
+        change_description: Description of the changes to make
         config: Optional LLM configuration. If not provided, uses default OpenAI config
         
     Returns:
-        str: The improved prompt
+        str: The improved prompt with reasoning analysis
     """
     from .prompts.system import PROMPT_EDITOR
     
@@ -127,7 +129,11 @@ def edit_prompt(prompt: str, config: Optional[LLMConfig] = None) -> str:
         },
         {
             "role": "user",
-            "content": prompt,
+            "content": f"""Current Prompt:
+{prompt}
+
+Change Description:
+{change_description}""",
         },
     ])
 
@@ -155,6 +161,38 @@ def create_audio_prompt(task_or_prompt: str, config: Optional[LLMConfig] = None)
         {
             "role": "user",
             "content": "Task, Goal, or Current Prompt:\n" + task_or_prompt,
+        },
+    ])
+
+def edit_audio_prompt(prompt: str, change_description: str, config: Optional[LLMConfig] = None) -> str:
+    """Edit an existing audio prompt to improve its effectiveness.
+    
+    Args:
+        prompt: The existing prompt to improve
+        change_description: Description of the changes to make
+        config: Optional LLM configuration. If not provided, uses default OpenAI config
+        
+    Returns:
+        str: The improved audio prompt with reasoning analysis
+    """
+    from .prompts.system import AUDIO_PROMPT_EDITOR
+    
+    if config is None:
+        config = LLMConfig.default_openai()
+    
+    client = LLMClient(config)
+    return client.generate([
+        {
+            "role": "system",
+            "content": AUDIO_PROMPT_EDITOR.content,
+        },
+        {
+            "role": "user",
+            "content": f"""Current Prompt:
+{prompt}
+
+Change Description:
+{change_description}""",
         },
     ])
 
@@ -196,3 +234,38 @@ def generate_prompt(task_or_prompt: str, model: str = "gpt-4o") -> str:
         api_key=os.getenv("OPENAI_API_KEY")
     )
     return create_prompt(task_or_prompt, config=config)
+
+def generate_schema(description: str, model: str = "gpt-4") -> Dict:
+    """Generate a JSON schema based on a description.
+    
+    Args:
+        description: Description of the function to generate a schema for
+        model: The model to use for generation
+        
+    Returns:
+        Dict containing the generated schema
+    """
+    messages = [
+        {"role": "system", "content": "Generate a JSON schema based on the following description:"},
+        {"role": "user", "content": description}
+    ]
+    
+    response = OpenAI.ChatCompletion.create(
+        model=model,
+        messages=messages,
+        temperature=0.0,
+        max_tokens=1000
+    )
+    
+    schema_str = response.choices[0].message.content
+    try:
+        # Extract the schema from the response if it's wrapped in a code block
+        if "```json" in schema_str:
+            schema_str = schema_str.split("```json")[1].split("```")[0].strip()
+        elif "```" in schema_str:
+            schema_str = schema_str.split("```")[1].split("```")[0].strip()
+            
+        schema = json.loads(schema_str)
+        return schema
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse generated schema: {e}")
