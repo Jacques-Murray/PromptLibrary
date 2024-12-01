@@ -2,7 +2,8 @@ name: Publish to PyPI
 
 on:
   release:
-    types: [created]
+    types: [published]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -32,3 +33,6 @@ jobs:
     
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        verbose: true
+        print-hash: true
