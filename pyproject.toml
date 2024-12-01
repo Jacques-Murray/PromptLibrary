@@ -1,12 +1,25 @@
 [tool.black]
-line-length = 100
-target-version = ['py311']
+line-length = 88
 include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
 
 [tool.isort]
 profile = "black"
 multi_line_output = 3
-line_length = 100
+line_length = 88
 include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
@@ -24,13 +37,10 @@ warn_unused_ignores = true
 warn_return_any = true
 warn_unreachable = true
 strict_optional = true
-
-[tool.bandit]
-exclude_dirs = ["tests"]
-skips = ["B101"]  # skip assert warnings in tests
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-minversion = "6.0"
+minversion = "7.0"
 addopts = "-ra -q --cov=promptlibrary --cov-report=term-missing"
 testpaths = [
     "tests",
